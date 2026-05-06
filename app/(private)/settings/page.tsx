@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isUserBillingExempt } from "@/lib/billing-exempt";
 import { syncUserFromClerk } from "@/lib/sync-user";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -14,6 +15,11 @@ import {
 export default async function SettingsPage() {
   const user = await syncUserFromClerk();
   if (!user) redirect("/sign-in");
+
+  const billingExempt = isUserBillingExempt({
+    billingExemptFromStripe: user.billingExemptFromStripe,
+    email: user.email,
+  });
 
   return (
     <div className="mx-auto max-w-xl space-y-8">
@@ -36,9 +42,15 @@ export default async function SettingsPage() {
             <span className="text-sm text-muted-foreground">Current</span>
             <Badge className="capitalize">{user.plan}</Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Need more unlocks, favorites, or founder playbooks? Jump to pricing anytime.
-          </p>
+          {billingExempt ? (
+            <p className="text-sm text-muted-foreground">
+              当前套餐由管理员手动授予，不会随 Stripe 订阅事件自动变更。
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Need more unlocks, favorites, or founder playbooks? Jump to pricing anytime.
+            </p>
+          )}
           <Link
             href="/pricing"
             className={buttonVariants({ variant: "secondary" })}

@@ -8,13 +8,15 @@ datasource db {
 }
 
 model User {
-  id               String   @id @default(uuid())
-  clerkUserId      String   @unique @map("clerk_user_id")
-  email            String?
-  name             String?
-  plan             String   @default("free")
-  stripeCustomerId String?  @map("stripe_customer_id")
-  createdAt        DateTime @default(now()) @map("created_at")
+  id                       String   @id @default(uuid())
+  clerkUserId              String   @unique @map("clerk_user_id")
+  email                    String?
+  name                     String?
+  plan                     String   @default("free")
+  /** When true, Stripe webhooks never change `plan` (manual / comp billing). */
+  billingExemptFromStripe  Boolean  @default(false) @map("billing_exempt_from_stripe")
+  stripeCustomerId         String?  @map("stripe_customer_id")
+  createdAt                DateTime @default(now()) @map("created_at")
 
   favorites     Favorite[]
   subscriptions Subscription[]

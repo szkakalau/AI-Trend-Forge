@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { isUserBillingExempt } from "@/lib/billing-exempt";
 import { prisma } from "@/lib/prisma";
 import { getStripe, planFromPriceId } from "@/lib/stripe";
 
@@ -8,6 +9,14 @@ export const dynamic = "force-dynamic";
 async function syncActiveSubscription(sub: Stripe.Subscription) {
   const userId = sub.metadata?.userId;
   if (!userId) return;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { billingExemptFromStripe: true, email: true },
+  });
+  if (user && isUserBillingExempt(user)) {
+    return;
+  }
 
   const priceId = sub.items.data[0]?.price?.id as string | undefined;
   const mapped = priceId ? planFromPriceId(priceId) : null;
@@ -88,15 +97,22 @@ export async function POST(req: Request) {
         const sub = event.data.object as Stripe.Subscription;
         const userId = sub.metadata?.userId;
         if (userId) {
-          await prisma.user.update({
+          const user = await prisma.user.findUnique({
             where: { id: userId },
-            data: { plan: "free" },
+            select: { billingExemptFromStripe: true, email: true },
           });
-          if (sub.id) {
-            await prisma.subscription.updateMany({
-              where: { stripeSubscriptionId: sub.id },
-              data: { status: "canceled", plan: "free" },
+          const exempt = user && isUserBillingExempt(user);
+          if (!exempt) {
+            await prisma.user.update({
+              where: { id: userId },
+              data: { plan: "free" },
             });
+            if (sub.id) {
+              await prisma.subscription.updateMany({
+                where: { stripeSubscriptionId: sub.id },
+                data: { status: "canceled", plan: "free" },
+              });
+            }
           }
         }
         break;
