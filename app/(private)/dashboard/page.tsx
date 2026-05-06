@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { syncUserFromClerk } from "@/lib/sync-user";
+import { getOpportunitiesForFeed } from "@/lib/opportunities-feed";
 import { prisma } from "@/lib/prisma";
 import { OpportunityCard } from "@/components/opportunity-card";
 import { canUseFavorites, FREE_WEEKLY_DETAIL_UNLOCKS } from "@/lib/plans";
@@ -13,10 +14,7 @@ export default async function DashboardPage() {
   if (!user) redirect("/sign-in");
 
   const [opportunities, favorites, usedWeek] = await Promise.all([
-    prisma.opportunity.findMany({
-      where: { status: "active" },
-      orderBy: { score: "desc" },
-    }),
+    getOpportunitiesForFeed(),
     prisma.favorite.findMany({ where: { userId: user.id } }),
     weeklyUnlocksUsed(user.id),
   ]);

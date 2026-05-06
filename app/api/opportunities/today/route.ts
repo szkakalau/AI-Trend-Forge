@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { getOpportunitiesForFeed } from "@/lib/opportunities-feed";
 import { prisma } from "@/lib/prisma";
 import { weeklyUnlocksUsed } from "@/lib/quota";
 import { canUseFavorites, FREE_WEEKLY_DETAIL_UNLOCKS } from "@/lib/plans";
@@ -19,22 +20,8 @@ export async function GET() {
     return NextResponse.json({ error: "User not provisioned" }, { status: 400 });
   }
 
-  const [rows, favorites, usedWeek] = await Promise.all([
-    prisma.opportunity.findMany({
-      where: { status: "active" },
-      orderBy: { score: "desc" },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        summary: true,
-        category: true,
-        score: true,
-        buildDifficulty: true,
-        pricingHint: true,
-        sourcePlatform: true,
-      },
-    }),
+  const [feed, favorites, usedWeek] = await Promise.all([
+    getOpportunitiesForFeed(),
     prisma.favorite.findMany({
       where: { userId: user.id },
       select: { opportunityId: true },
@@ -43,6 +30,18 @@ export async function GET() {
   ]);
 
   const fav = new Set(favorites.map((f) => f.opportunityId));
+
+  const rows = feed.map((o) => ({
+    id: o.id,
+    slug: o.slug,
+    title: o.title,
+    summary: o.summary,
+    category: o.category,
+    score: o.score,
+    buildDifficulty: o.buildDifficulty,
+    pricingHint: o.pricingHint,
+    sourcePlatform: o.sourcePlatform,
+  }));
 
   return NextResponse.json({
     plan: user.plan,

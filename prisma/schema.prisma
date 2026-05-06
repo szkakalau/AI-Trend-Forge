@@ -42,6 +42,10 @@ model Opportunity {
   status          String   @default("active")
   createdAt       DateTime @default(now()) @map("created_at")
 
+  /** When set, this row was generated from a pipeline SourcePost (1:1). */
+  sourcePostId String?     @unique @map("source_post_id")
+  sourcePost   SourcePost? @relation(fields: [sourcePostId], references: [id], onDelete: SetNull)
+
   whyNow          String? @map("why_now")
   icp             String?
   redditLaunch    String? @map("reddit_launch")
@@ -58,6 +62,8 @@ model Opportunity {
 model SourcePost {
   id            String   @id @default(uuid())
   platform      String
+  /** Stable id from the source API (e.g. Reddit t3_*, PH node id, HN objectID). */
+  externalId    String   @map("external_id")
   title         String
   body          String
   url           String
@@ -67,8 +73,17 @@ model SourcePost {
   createdAt     DateTime @default(now()) @map("created_at")
   rawJson       Json?    @map("raw_json")
 
-  signals Signal[]
+  /**
+   * pending: new or awaiting classify
+   * skipped_not_ai_product: classify said not a buildable AI product opportunity
+   * extract_failed: classify ok but JSON extract failed (retry on next run)
+   */
+  pipelineStatus String @default("pending") @map("pipeline_status")
 
+  signals      Signal[]
+  opportunity  Opportunity?
+
+  @@unique([platform, externalId])
   @@map("source_posts")
 }
 
